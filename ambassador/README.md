@@ -15,7 +15,7 @@ Amabassador message text is retreived from the first message in the **Canned Mes
 `Hello <node shortname>,` is prepended to the canned message
 
 ### Code
-The code is located in my forked meshtastic firmware repo under the branch `amabassador`
+The code is located in my forked meshtastic firmware repo under the branch [ambassador](https://github.com/ascendr/firmware/tree/ambassador)`
 
 ### Builds/Binaries
 I've compiled [firmware](./firmware/) based on `2.7.15.567b8ea beta` that can be uploaded via the [Meshtastic Web Flasher](https://flasher.meshtastic.org/) 
