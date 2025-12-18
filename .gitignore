@@ -1,0 +1,50 @@
+# --- IDE and System Files ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# --- Programming Languages ---
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Node.js / JavaScript
+node_modules/
+npm-debug.log*
+yarn-error.log*
+dist/
+build/
+
+# C++ / Compiled Binaries
+*.o
+*.obj
+*.exe
+*.bin
+*.hex
+*.elf
+*.out
+.pio/         # PlatformIO build folder
+
+# --- Environment and Secrets ---
+# NEVER commit these files
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+auth.json
+
+# --- Logs and Databases ---
+*.log
+*.sqlite
+*.db
+
+# --- Miscellaneous ---
+tmp/
+temp/
+out/
