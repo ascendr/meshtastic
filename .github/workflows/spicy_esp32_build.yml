@@ -83,12 +83,13 @@ jobs:
         if: steps.tag_check.outputs.should_build == 'true'
         run: |
           cp my-config/xxtra_spicy/esp32s3/variant.h variants/esp32s3/seeed_xiao_s3/variant.h
+      
       # Step 7: Compile pointing PlatformIO explicitly to the Seeed S3 environment file
       - name: Run PlatformIO Build
         if: steps.tag_check.outputs.should_build == 'true'
         run: |
           # Use -c to target the actual file where seeed_xiao_s3 is defined
-          pio run -c variants/esp32s3/seeed_xiao_s3/platformio.ini -e seeed_xiao_s3
+          pio run -c variants/esp32s3/seeed_xiao_s3/platformio.ini -e seeed-xiao-s3
           echo "${{ steps.tag_check.outputs.latest_tag }}" > .last_built_tag
 
       # Step 8: Move binary to target repository folder
@@ -99,7 +100,7 @@ jobs:
           mkdir -p my-config/builds/
           
           # Move and rename the dynamic binary file directly to your target directory
-          cp .pio/build/seeed_xiao_s3/firmware.bin my-config/builds/firmware-${{ steps.tag_check.outputs.latest_tag }}-spicy_esp32s3.bin
+          cp .pio/build/seeed-xiao-s3/firmware.bin my-config/builds/firmware-${{ steps.tag_check.outputs.latest_tag }}-spicy_esp32s3.bin
 
       # Step 9: Upload Compiled Binary Assets targeting your new exact folder path
       - name: Upload Firmware Artifacts
