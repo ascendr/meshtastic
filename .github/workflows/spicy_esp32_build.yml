@@ -84,14 +84,17 @@ jobs:
         run: |
           cp my-config/xxtra_spicy/esp32s3/variant.h variants/esp32s3/seeed_xiao_s3/variant.h
       
-      # Step 7: Compile passing both the root directory context AND the exact sub-INI file
+      # Step 7: Inject the sub-config path globally, then compile the true target
       - name: Run PlatformIO Build
         if: steps.tag_check.outputs.should_build == 'true'
         run: |
-          # -d . anchors PlatformIO to the root folder tree
-          # -c  seeed-xiao-s3 environment definition path
-          pio run -d . -c variants/esp32s3/seeed_xiao_s3/platformio.ini -e seeed-xiao-s3
+          # Append the specific sub-variant configuration path directly into the main config file
+          echo -e "\n[platformio]\nextra_configs = variants/esp32s3/seeed_xiao_s3/platformio.ini" >> platformio.ini
+          
+          # Execute the clean compilation now that the root tracking structure recognizes the target
+          pio run -e seeed-xiao-s3
           echo "${{ steps.tag_check.outputs.latest_tag }}" > .last_built_tag
+
 
 
       # Step 8: Move binary to target repository folder
