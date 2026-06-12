@@ -82,7 +82,7 @@ jobs:
       - name: Overwrite variant.h File
         if: steps.tag_check.outputs.should_build == 'true'
         run: |
-          cp xxtra_spicy/esp32s3/variant.h firmware/variants/esp32s3/seeed_xiao_s3/variant.h
+          cp my-config/xxtra_spicy/esp32s3/variant.h firmware/variants/esp32s3/seeed_xiao_s3/variant.h
 
       # Step 7: Compile and update tracker token on success
       - name: Run PlatformIO Build
@@ -99,7 +99,7 @@ jobs:
           mkdir -p my-config/builds/
           
           # Move and rename the dynamic binary file directly to your target directory
-          cp .pio/build/seeed_xiao_esp32s3/firmware.bin my-config/builds/firmware-${{ steps.tag_check.outputs.latest_tag }}-spicy_esp32s3.bin
+          cp .pio/build/seeed_xiao_s3/firmware.bin my-config/builds/firmware-${{ steps.tag_check.outputs.latest_tag }}-spicy_esp32s3.bin
 
       # Step 9: Upload Compiled Binary Assets targeting your new exact folder path
       - name: Upload Firmware Artifacts
@@ -108,5 +108,5 @@ jobs:
         with:
           name: firmware-${{ steps.tag_check.outputs.latest_tag }}-spicy_esp32s3
           # Change this path to point exactly to your newly created custom folder structure
-          path: xxtra_spicy/firmware/firmware-${{ steps.tag_check.outputs.latest_tag }}-spicy_esp32s3.bin
+          path: my-config/builds/firmware-${{ steps.tag_check.outputs.latest_tag }}-spicy_esp32s3.bin
           retention-days: 14
