@@ -82,7 +82,7 @@ jobs:
       - name: Overwrite variant.h File
         if: steps.tag_check.outputs.should_build == 'true'
         run: |
-          cp my-config/xxtra_spicy/esp32s3/variant.h firmware/variants/esp32s3/seeed_xiao_s3/variant.h
+          cp my-config/xxtra_spicy/esp32s3/variant.h variants/esp32s3/seeed_xiao_s3/variant.h
 
       # Step 7: Compile and update tracker token on success
       - name: Run PlatformIO Build
