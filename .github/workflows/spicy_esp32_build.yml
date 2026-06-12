@@ -83,12 +83,12 @@ jobs:
         if: steps.tag_check.outputs.should_build == 'true'
         run: |
           cp my-config/xxtra_spicy/esp32s3/variant.h variants/esp32s3/seeed_xiao_s3/variant.h
-
-      # Step 7: Compile and update tracker token on success
+      # Step 7: Compile pointing PlatformIO explicitly to the Seeed S3 environment file
       - name: Run PlatformIO Build
         if: steps.tag_check.outputs.should_build == 'true'
         run: |
-          pio run -e seeed_xiao_s3
+          # Use -c to target the actual file where seeed_xiao_s3 is defined
+          pio run -c variants/esp32s3/seeed_xiao_s3/platformio.ini -e seeed_xiao_s3
           echo "${{ steps.tag_check.outputs.latest_tag }}" > .last_built_tag
 
       # Step 8: Move binary to target repository folder
