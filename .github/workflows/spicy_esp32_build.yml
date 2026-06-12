@@ -9,13 +9,15 @@ jobs:
   check-and-build:
     runs-on: ubuntu-latest
     steps:
-      # Step 1: Checkout ONLY the official upstream Meshtastic codebase
+      # Step 1: Checkout ONLY the official upstream Meshtastic codebase with submodules
       - name: Checkout Official Meshtastic Firmware
         uses: actions/checkout@v4
         with:
           repository: meshtastic/firmware
           ref: develop
           fetch-depth: 0
+          submodules: true # Pulls down required dependency targets
+
 
       # Step 2: Identify the latest tag on the Meshtastic develop branch
       - name: Detect Latest Upstream Tag
@@ -84,18 +86,12 @@ jobs:
         run: |
           cp my-config/xxtra_spicy/esp32s3/variant.h variants/esp32s3/seeed_xiao_s3/variant.h
       
-      # Step 7: Inject the sub-config path globally, then compile the true target
+      # Step 7: Compile natively using the root config file
       - name: Run PlatformIO Build
         if: steps.tag_check.outputs.should_build == 'true'
         run: |
-          # Append the specific sub-variant configuration path directly into the main config file
-          echo -e "\n[platformio]\nextra_configs = variants/esp32s3/seeed_xiao_s3/platformio.ini" >> platformio.ini
-          
-          # Execute the clean compilation now that the root tracking structure recognizes the target
           pio run -e seeed-xiao-s3
           echo "${{ steps.tag_check.outputs.latest_tag }}" > .last_built_tag
-
-
 
       # Step 8: Move binary to target repository folder
       - name: Stage Binary in Repo Path
