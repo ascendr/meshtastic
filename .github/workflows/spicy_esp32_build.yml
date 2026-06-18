@@ -145,7 +145,7 @@ jobs:
           if git diff-index --quiet HEAD; then
             echo "No changes detected in binaries. Skipping push."
           else
-            git commit -m "Automated Build: Added Spicy Esp32S3 firmware zip for version ${{ steps.tag_check.outputs.latest_tag }}"
+            git commit -m "Automated Build: Spicy seeed xiao esp32s3 firmware zip for version ${{ steps.tag_check.outputs.latest_tag }}"
             git push origin HEAD
             echo "Changes successfully pushed to repository!"
           fi
