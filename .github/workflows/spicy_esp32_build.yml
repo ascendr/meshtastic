@@ -118,7 +118,7 @@ jobs:
           done
           
           # 3. Ensure target directory inside your custom repo folder exists
-          TARGET_DIR="my-config/xxtra_spicy/esp32s3"
+          TARGET_DIR="my-config/xxtra_spicy/esp32s3/firmware"
           mkdir -p "$TARGET_DIR"
           
           # 4. Create the zip archive directly inside the target directory path
