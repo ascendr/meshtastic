@@ -122,7 +122,7 @@ jobs:
           mkdir -p "$TARGET_DIR"
           
           # 4. Create the zip archive directly inside the target directory path
-          ZIP_NAME="firmware-${{ steps.tag_check.outputs.latest_tag }}-spicy-seeed-xiao-s3-all.zip"
+          ZIP_NAME="firmware-spicy-seeed-xiao-s3-${{ steps.tag_check.outputs.latest_tag }}.zip"
           zip -j -r "$TARGET_DIR/$ZIP_NAME" "$TEMP_ZIP_DIR"/*
           
           echo "Zip file created successfully at $TARGET_DIR/$ZIP_NAME"
