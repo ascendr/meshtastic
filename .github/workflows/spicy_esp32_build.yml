@@ -100,18 +100,34 @@ jobs:
           pio run -e seeed-xiao-s3
           echo "${{ steps.tag_check.outputs.latest_tag }}" > .last_built_tag
 
-      # Step 11: Move binary to target repository folder
+      # Step 11: Move all binary assets and inject the "spicy-" prefix
       - name: Stage Binary in Repo Path
         if: steps.tag_check.outputs.should_build == 'true'
         run: |
           mkdir -p my-config/builds/
-          cp .pio/build/seeed-xiao-s3/firmware.bin my-config/builds/firmware-${{ steps.tag_check.outputs.latest_tag }}-spicy_esp32s3.bin
+          
+          # Loop through all files matching the pattern
+          for file in .pio/build/seeed-xiao-s3/firmware-*.bin; do
+            # Check if file actually exists to prevent errors
+            [ -e "$file" ] || continue
+            
+            # Get just the filename without the path directory
+            FILENAME=$(basename "$file")
+            
+            # Insert "spicy-" right after "firmware-"
+            NEW_NAME="${FILENAME/firmware-/firmware-spicy-}"
+            
+            # Copy and rename the file into the staging folder
+            cp "$file" "my-config/builds/$NEW_NAME"
+            echo "Renamed and staged: $NEW_NAME"
+          done
 
-      # Step 12: Upload Compiled Binary Assets
+      # Step 12: Upload All Compiled Binary Assets together
       - name: Upload Firmware Artifacts
         if: steps.tag_check.outputs.should_build == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: firmware-${{ steps.tag_check.outputs.latest_tag }}-spicy_esp32s3
-          path: my-config/builds/firmware-${{ steps.tag_check.outputs.latest_tag }}-spicy_esp32s3.bin
+          name: firmware-${{ steps.tag_check.outputs.latest_tag }}-spicy-seeed-xiao-s3-all
+          path: my-config/builds/
           retention-days: 14
+
