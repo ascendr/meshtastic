@@ -139,7 +139,7 @@ jobs:
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           
           # Stage the new zip file
-          git add xxtra_spicy/esp32s3/*.zip
+          git add xxtra_spicy/esp32s3/firmware/*.zip
           
           # Commit only if files have changed to prevent empty-commit workflow failures
           if git diff-index --quiet HEAD; then
