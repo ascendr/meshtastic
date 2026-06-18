@@ -4,7 +4,8 @@ on:
   schedule:
     - cron: '0 2 * * *' # Runs nightly at 2:00 AM UTC
   workflow_dispatch: # Allows manual trigger anytime
-
+permissions:
+  contents: write
 jobs:
   check-and-build:
     runs-on: ubuntu-latest
@@ -100,34 +101,53 @@ jobs:
           pio run -e seeed-xiao-s3
           echo "${{ steps.tag_check.outputs.latest_tag }}" > .last_built_tag
 
-      # Step 11: Move all binary assets and inject the "spicy-" prefix
-      - name: Stage Binary in Repo Path
+      # Step 11: Stage, rename, and compress files into the local config repo path
+      - name: Add Zip File to Custom Config Repo
         if: steps.tag_check.outputs.should_build == 'true'
         run: |
-          mkdir -p my-config/builds/
+          # 1. Create a temporary folder to collect files for the zip archive
+          TEMP_ZIP_DIR="temp_spicy_build"
+          mkdir -p "$TEMP_ZIP_DIR"
           
-          # Loop through all files matching the pattern
+          # 2. Collect and rename files matching 'firmware-*.bin' with the 'spicy-' prefix
           for file in .pio/build/seeed-xiao-s3/firmware-*.bin; do
-            # Check if file actually exists to prevent errors
             [ -e "$file" ] || continue
-            
-            # Get just the filename without the path directory
             FILENAME=$(basename "$file")
-            
-            # Insert "spicy-" right after "firmware-"
             NEW_NAME="${FILENAME/firmware-/firmware-spicy-}"
-            
-            # Copy and rename the file into the staging folder
-            cp "$file" "my-config/builds/$NEW_NAME"
-            echo "Renamed and staged: $NEW_NAME"
+            cp "$file" "$TEMP_ZIP_DIR/$NEW_NAME"
           done
+          
+          # 3. Ensure target directory inside your custom repo folder exists
+          TARGET_DIR="my-config/xxtra_spicy/esp32s3"
+          mkdir -p "$TARGET_DIR"
+          
+          # 4. Create the zip archive directly inside the target directory path
+          ZIP_NAME="firmware-${{ steps.tag_check.outputs.latest_tag }}-spicy-seeed-xiao-s3-all.zip"
+          zip -j -r "$TARGET_DIR/$ZIP_NAME" "$TEMP_ZIP_DIR"/*
+          
+          echo "Zip file created successfully at $TARGET_DIR/$ZIP_NAME"
 
-      # Step 12: Upload All Compiled Binary Assets together
-      - name: Upload Firmware Artifacts
+      # Step 12: Commit and push the zip file back to your configuration repository
+      - name: Push Zip File Upstream
         if: steps.tag_check.outputs.should_build == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: firmware-${{ steps.tag_check.outputs.latest_tag }}-spicy-seeed-xiao-s3-all
-          path: my-config/builds/
-          retention-days: 14
+        run: |
+          # Change context to your checked-out local configuration directory
+          cd my-config
+          
+          # Configure git identity using the standard GitHub Actions bot credentials
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          # Stage the new zip file
+          git add xxtra_spicy/esp32s3/*.zip
+          
+          # Commit only if files have changed to prevent empty-commit workflow failures
+          if git diff-index --quiet HEAD; then
+            echo "No changes detected in binaries. Skipping push."
+          else
+            git commit -m "Automated Build: Added Spicy Esp32S3 firmware zip for version ${{ steps.tag_check.outputs.latest_tag }}"
+            git push origin HEAD
+            echo "Changes successfully pushed to repository!"
+          fi
+
 
