@@ -10,52 +10,55 @@ jobs:
   check-and-build:
     runs-on: ubuntu-latest
     steps:
-      # Step 1: Checkout upstream codebase with full history so we can see tags
-      - name: Checkout Official Meshtastic Firmware
+      # Step 1: Only check out your local custom config repo (Fast!)
+      - name: Checkout My Custom Configuration Files
         uses: actions/checkout@v4
         with:
-          repository: meshtastic/firmware
-          ref: develop
-          fetch-depth: 0
-          submodules: true
+          path: my-config
 
-      # Step 2: RESTORE THE TRACKER FIRST (Fixed placement and keys)
+      # Step 2: Restore the Tracker Cache
       - name: Restore Tag Tracker Cache
         uses: actions/cache@v4
         with:
-          path: .last_built_tag
-          key: tag-tracker-cache-${{ github.run_id }} # Unique key forces a save at the end
-          restore-keys: |
-            tag-tracker-cache-
+          path: my-config/.last_built_tag
+          key: tag-tracker-cache-global
 
-      # Step 3: Identify the latest tag and compare (Fixed logic)
-      - name: Detect Latest Upstream Tag
+      # Step 3: Track Official Releases via GitHub API
+      - name: Detect Latest Upstream Release
         id: tag_check
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          LATEST_TAG=$(git describe --tags --abbrev=0)
-          echo "Latest Meshtastic tag: $LATEST_TAG"
+          # Fetch the absolute latest release version string (e.g., v2.7.26.54e0d8d)
+          LATEST_TAG=$(gh api repos/meshtastic/firmware/releases/latest --jq '.tag_name')
+          
+          echo "Latest Meshtastic Release: $LATEST_TAG"
           echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
 
           LAST_BUILT_TAG=""
-          if [ -f .last_built_tag ]; then
-            LAST_BUILT_TAG=$(cat .last_built_tag)
+          if [ -f my-config/.last_built_tag ]; then
+            LAST_BUILT_TAG=$(cat my-config/.last_built_tag)
           fi
-          echo "Last successfully compiled tag: $LAST_BUILT_TAG"
+          echo "Last successfully compiled release: $LAST_BUILT_TAG"
 
           if [ "$LATEST_TAG" = "$LAST_BUILT_TAG" ]; then
-            echo "No new firmware tag detected. Exiting."
+            echo "No new firmware release detected. Exiting."
             echo "should_build=false" >> $GITHUB_OUTPUT
           else
-            echo "New tag found! Proceeding with custom compilation."
+            echo "New release found! Proceeding with custom compilation."
             echo "should_build=true" >> $GITHUB_OUTPUT
           fi
 
-      # Step 4: MOVE CODE TO THE TAG (Fixed: Actually targets the tag version)
-      - name: Switch Codebase to Tag Version
+      # Step 4: Shallow clone ONLY the specific release tag version
+      - name: Checkout Official Meshtastic Firmware at Release Tag
         if: steps.tag_check.outputs.should_build == 'true'
-        run: |
-          git checkout ${{ steps.tag_check.outputs.latest_tag }}
-          git submodule update --init --recursive
+        uses: actions/checkout@v4
+        with:
+          repository: meshtastic/firmware
+          ref: ${{ steps.tag_check.outputs.latest_tag }}
+          fetch-depth: 1 # Shallow clone saves time and bandwidth
+          submodules: true
+
 
       # Step 5: Checkout your own local build repo files
       - name: Checkout My Custom Configuration Files
