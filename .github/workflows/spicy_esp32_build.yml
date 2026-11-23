@@ -85,7 +85,11 @@ jobs:
         if: steps.tag_check.outputs.should_build == 'true'
         run: |
           python -m pip install --upgrade pip
-          pip install --upgrade platformio
+          python -m pip install --upgrade "platformio>=6.2.0"
+          # The hybrid build uses this separate environment; post releases fail its version check.
+          python -m venv "$HOME/.platformio/penv"
+          "$HOME/.platformio/penv/bin/python" -m pip install "pioarduino==6.2.0"
+          "$HOME/.platformio/penv/bin/pio" --version
 
       # Step 9: Overwrite the file using the local 'my-config' path
       - name: Overwrite variant.h File
