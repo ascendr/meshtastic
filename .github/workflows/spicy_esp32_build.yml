@@ -6,6 +6,9 @@ on:
   workflow_dispatch: # Allows manual trigger anytime
 permissions:
   contents: write
+concurrency:
+  group: spicy-esp32-build-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   check-and-build:
     runs-on: ubuntu-latest
@@ -16,21 +19,14 @@ jobs:
         with:
           path: my-config
 
-      # Step 2: Restore the Tracker Cache
-      - name: Restore Tag Tracker Cache
-        uses: actions/cache@v4
-        with:
-          path: my-config/.last_built_tag
-          key: tag-tracker-cache-global
-
-      # Step 3: Track Official Releases via GitHub API
+      # Track published releases, including prereleases
       - name: Detect Latest Upstream Release
         id: tag_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Fetch the absolute latest release version string (e.g., v2.7.26.54e0d8d)
-          LATEST_TAG=$(gh api repos/meshtastic/firmware/releases/latest --jq '.tag_name')
+          LATEST_TAG=$(gh api 'repos/meshtastic/firmware/releases?per_page=100' \
+            --jq 'map(select(.draft == false)) | .[0].tag_name // error("No published releases found")')
           
           echo "Latest Meshtastic Release: $LATEST_TAG"
           echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
@@ -102,7 +98,6 @@ jobs:
         if: steps.tag_check.outputs.should_build == 'true'
         run: |
           pio run -e seeed-xiao-s3
-          echo "${{ steps.tag_check.outputs.latest_tag }}" > .last_built_tag
 
       # Step 11: Stage, rename, and compress files into the local config repo path
       - name: Add Zip File to Custom Config Repo
@@ -141,16 +136,15 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           
-          # Stage the new zip file
-          git add xxtra_spicy/esp32s3/firmware/*.zip
+          # Record the tag only after the build and archive have succeeded
+          echo "${{ steps.tag_check.outputs.latest_tag }}" > .last_built_tag
+          git add .last_built_tag xxtra_spicy/esp32s3/firmware/*.zip
           
           # Commit only if files have changed to prevent empty-commit workflow failures
-          if git diff-index --quiet HEAD; then
+          if git diff --cached --quiet; then
             echo "No changes detected in binaries. Skipping push."
           else
             git commit -m "Automated Build: Spicy seeed xiao esp32s3 firmware zip for version ${{ steps.tag_check.outputs.latest_tag }}"
             git push origin HEAD
             echo "Changes successfully pushed to repository!"
           fi
-
-
