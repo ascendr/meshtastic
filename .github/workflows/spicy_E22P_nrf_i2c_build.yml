@@ -1,0 +1,143 @@
+name: Nightly Spicy E22P I2C Build
+
+on:
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: spicy-e22p-i2c-build-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  check-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout My Custom Configuration Files
+        uses: actions/checkout@v4
+        with:
+          path: my-config
+
+      - name: Detect Latest Upstream Release
+        id: tag_check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          LATEST_TAG=$(gh api 'repos/meshtastic/firmware/releases?per_page=100' \
+            --jq 'map(select(.draft == false)) | .[0].tag_name // error("No published releases found")')
+
+          echo "Latest Meshtastic Release: $LATEST_TAG"
+          echo "latest_tag=$LATEST_TAG" >> "$GITHUB_OUTPUT"
+
+          LAST_BUILT_TAG=""
+          if [ -f my-config/.last_built_tag_spicy_E22P_i2c ]; then
+            LAST_BUILT_TAG=$(cat my-config/.last_built_tag_spicy_E22P_i2c)
+          fi
+          echo "Last successfully compiled release: $LAST_BUILT_TAG"
+
+          if [ "$LATEST_TAG" = "$LAST_BUILT_TAG" ]; then
+            echo "No new firmware release detected. Exiting."
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "New release found! Proceeding with compilation."
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout Official Meshtastic Firmware at Release Tag
+        if: steps.tag_check.outputs.should_build == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: meshtastic/firmware
+          ref: ${{ steps.tag_check.outputs.latest_tag }}
+          fetch-depth: 1
+          submodules: true
+
+      - name: Checkout My Custom Configuration Files
+        if: steps.tag_check.outputs.should_build == 'true'
+        uses: actions/checkout@v4
+        with:
+          path: my-config
+
+      - name: Set up Python
+        if: steps.tag_check.outputs.should_build == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Cache PlatformIO
+        if: steps.tag_check.outputs.should_build == 'true'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            .pio
+          key: ${{ runner.os }}-platformio-${{ hashFiles('**/platformio.ini') }}
+
+      - name: Install PlatformIO CLI
+        if: steps.tag_check.outputs.should_build == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade "platformio>=6.2.0"
+          python -m venv "$HOME/.platformio/penv"
+          "$HOME/.platformio/penv/bin/python" -m pip install "pioarduino==6.2.0"
+          "$HOME/.platformio/penv/bin/pio" --version
+
+      - name: Copy E22P Variant Files
+        if: steps.tag_check.outputs.should_build == 'true'
+        run: |
+          cp my-config/xxtra_spicy/E22P/nrf52840/variant.h variants/nrf52840/seeed_xiao_nrf52840_kit/variant.h
+          cp my-config/xxtra_spicy/E22P/nrf52840/variant.cpp variants/nrf52840/seeed_xiao_nrf52840_kit/variant.cpp
+
+      - name: Run PlatformIO Build
+        if: steps.tag_check.outputs.should_build == 'true'
+        run: |
+          pio run -e seeed_xiao_nrf52840_kit_i2c
+
+      - name: Add Zip File to Custom Config Repo
+        if: steps.tag_check.outputs.should_build == 'true'
+        env:
+          LATEST_TAG: ${{ steps.tag_check.outputs.latest_tag }}
+        run: |
+          TEMP_ZIP_DIR="temp_spicy_E22P_i2c_build"
+          mkdir -p "$TEMP_ZIP_DIR"
+          BUILD_DIR=".pio/build/seeed_xiao_nrf52840_kit_i2c"
+
+          # Package the UF2 and any generated HEX and OTA ZIP alongside it.
+          shopt -s nullglob
+          uf2_files=("$BUILD_DIR"/firmware-seeed_xiao_nrf52840_kit_i2c-*.uf2)
+          if [ "${#uf2_files[@]}" -eq 0 ]; then
+            echo "No UF2 firmware found in $BUILD_DIR" >&2
+            exit 1
+          fi
+          for file in "${uf2_files[@]}" "$BUILD_DIR"/firmware-seeed_xiao_nrf52840_kit_i2c-*.hex "$BUILD_DIR"/firmware-seeed_xiao_nrf52840_kit_i2c-*.zip; do
+            FILENAME=$(basename "$file")
+            NEW_NAME="${FILENAME/firmware-seeed_xiao_nrf52840_kit_i2c/firmware-spicy-E22P-i2c}"
+            cp "$file" "$TEMP_ZIP_DIR/$NEW_NAME"
+          done
+
+          TARGET_DIR="my-config/xxtra_spicy/E22P/nrf52840/firmware"
+          mkdir -p "$TARGET_DIR"
+          ZIP_NAME="firmware-spicy-E22P-i2c-${LATEST_TAG}.zip"
+          zip -j -r "$TARGET_DIR/$ZIP_NAME" "$TEMP_ZIP_DIR"/*
+          echo "Zip file created successfully at $TARGET_DIR/$ZIP_NAME"
+
+      - name: Push Zip File Upstream
+        if: steps.tag_check.outputs.should_build == 'true'
+        env:
+          LATEST_TAG: ${{ steps.tag_check.outputs.latest_tag }}
+        run: |
+          cd my-config
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          echo "$LATEST_TAG" > .last_built_tag_spicy_E22P_i2c
+          git add .last_built_tag_spicy_E22P_i2c "xxtra_spicy/E22P/nrf52840/firmware/firmware-spicy-E22P-i2c-${LATEST_TAG}.zip"
+
+          if git diff --cached --quiet; then
+            echo "No changes detected in binaries. Skipping push."
+          else
+            git commit -m "Automated Build: Spicy E22P I2C firmware zip for version $LATEST_TAG"
+            git pull --rebase origin "${GITHUB_REF_NAME}"
+            git push origin HEAD
+            echo "Changes successfully pushed to repository!"
+          fi
